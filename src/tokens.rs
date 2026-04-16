@@ -1,21 +1,22 @@
 // Copyright (C) 2026 wgrav
-// 
+//
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as
 // published by the Free Software Foundation, either version 3 of the
 // License, or (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU Affero General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use phf::phf_map;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(dead_code)]
 pub enum TokenKind {
     // Basic syntax
     LeftParen,
@@ -27,31 +28,31 @@ pub enum TokenKind {
     Semicolon,
 
     // Operators, precedence level 1
-    New, // Creation
-    Bang, // "!", logical NOT
+    New,   // Creation
+    Bang,  // "!", logical NOT
     Tilde, // "~", bitwise NOT
 
     // Operators, precedence level 2
-    Star, // "*", multiplication
-    Slash, // "/", division
-    Percent, // "%", modulo
-    Ampersand, // "&", bitwise and
-    DoubleLess, // "<<", left shift
-    DoubleGreater, // "<<", right shift    
-    
+    Star,          // "*", multiplication
+    Slash,         // "/", division
+    Percent,       // "%", modulo
+    Ampersand,     // "&", bitwise and
+    DoubleLess,    // "<<", left shift
+    DoubleGreater, // "<<", right shift
+
     // Operators, precedence level 3
-    Plus, // "+", addittion
-    Minus, // "-", subtraction
+    Plus,        // "+", addittion
+    Minus,       // "-", subtraction
     VerticalBar, // "|", bitwise OR
-    Caret, // "^", bitwise XOR
+    Caret,       // "^", bitwise XOR
 
     // Operators, precedence level 4
-    Less, // "<", less than
-    LessEqual, // "<=", less than or equals
-    Greater, // ">", greater than
+    Less,         // "<", less than
+    LessEqual,    // "<=", less than or equals
+    Greater,      // ">", greater than
     GreaterEqual, // ">=", greater than or equals
-    EqualEqual, // "==", equal equals
-    BangEqual, // "!=", not equal
+    EqualEqual,   // "==", equal equals
+    BangEqual,    // "!=", not equal
 
     // Operators, precedence level 5
     DoubleVerticalBar, // "||", logical or
@@ -61,16 +62,6 @@ pub enum TokenKind {
 
     // Literals
     Identifier, // Variable
-    Int, // 32-bit signed integers
-    Float, // 32-bit floating point numbers
-    Long, // 64-bit signed integers
-    Double, // 64-bit floating point numbers
-    Boolean, // true and false
-    Char, // Unicode characters
-    Str, // Strings of characters
-    Object, // Instantiated objects (defined with the class keyword)
-    Array, // Allocated with the syntax new [X] where 'X' is an expression computing the size of the array
-    Dictionary, // Associative arrays, allocated with the syntax {}
 
     // Keywords
     As,
@@ -105,7 +96,7 @@ pub enum TokenKind {
     Try,
     Using,
     Var,
-    While
+    While,
 }
 
 pub static KEYWORDS: phf::Map<&str, TokenKind> = phf_map! {
@@ -143,6 +134,117 @@ pub static KEYWORDS: phf::Map<&str, TokenKind> = phf_map! {
     "while" => TokenKind::While
 };
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Literal {
+    /// Variable name. Might get removed from this enum
+    Identifier(String),
+
+    /// 32-bit signed integers
+    Int(i32),
+
+    /// 32-bit floating point numbers
+    Float(f32),
+
+    /// 64-bit signed integers
+    Long(i64),
+
+    /// 64-bit floating point numbers
+    Double(f64),
+
+    /// true and false
+    Boolean(bool),
+
+    /// Unicode characters
+    Char(char),
+
+    /// Strings of characters. Note: the String type might change
+    Str(String),
+
+    /// Instantiated objects (defined with the class keyword)
+    Object, // TODO: get type for this
+
+    /// Allocated with the syntax new [X] where 'X' is an expression computing the size of the array.
+    Array, // TODO: Get type for this
+
+    /// Associative arrays, allocated with the syntax {}.
+    Dictionary, // TODO: Get type for this
+
+    /// No literal
+    Nil,
+}
+
+/// A structure of arrays containing tokens
+pub struct TokenPool {
+    /// The type of the token
+    kind: Vec<TokenKind>,
+
+    /// The text content of the token, if applicable
+    lexeme: Vec<String>,
+
+    /// The literal value of the token. Nil if not applicable
+    literal: Vec<Literal>,
+
+    /// The line number of the token
+    line: Vec<usize>,
+
+    /// The starting position of the token on the line
+    pos: Vec<usize>,
+}
+
+impl TokenPool {
+    /// Returns a brand spankin' new TokenPool, pre allocated at the capacity var.
+    /// Reccomended to set capacity to an guesstimate of the tokens (i.e source char length / 4).
+    pub fn new(capacity: usize) -> TokenPool {
+        TokenPool {
+            kind: Vec::with_capacity(capacity),
+            lexeme: Vec::with_capacity(capacity),
+            literal: Vec::with_capacity(capacity),
+            line: Vec::with_capacity(capacity),
+            pos: Vec::with_capacity(capacity),
+        }
+    }
+
+    /// Returns the length of the tokens in the TokenPool.
+    pub fn len(&self) -> usize {
+        self.kind.len() // safe, as the fields mechanically have to be the same length
+    }
+
+    /// Returns the TokenKind at the specified index, or nothing if out of bounds
+    pub fn kind_at(&self, index: usize) -> Option<TokenKind> {
+        self.kind.get(index).copied()
+    }
+
+    /// Returns a borrowed Literal at the specified index, or nothing if out of bounds
+    pub fn literal_at(&self, index: usize) -> Option<&Literal> {
+        self.literal.get(index)
+    }
+
+    /// Returns a borrowed lexeme string at a specified index, or none if out of bounds
+    pub fn lexeme_at(&self, index: usize) -> Option<&str> {
+        self.lexeme.get(index).map(|s| s.as_str())
+    }
+
+    /// Returns the token at an index's line number, or nothing if out of bounds
+    pub fn line_at(&self, index: usize) -> Option<usize> {
+        self.line.get(index).copied()
+    }
+
+    pub fn push(
+        &mut self,
+        kind: TokenKind,
+        lexeme: String,
+        literal: Literal,
+        line: usize,
+        pos: usize,
+    ) {
+        self.kind.push(kind);
+        self.lexeme.push(lexeme);
+        self.literal.push(literal);
+        self.line.push(line);
+        self.pos.push(pos);
+    }
+}
+
 #[cfg(test)]
 mod keyword_matching_tests {
     use super::*;
@@ -156,7 +258,7 @@ mod keyword_matching_tests {
     fn break_keyword() {
         assert_eq!(KEYWORDS.get("break").cloned(), Some(TokenKind::Break))
     }
-    
+
     #[test]
     fn case_keyword() {
         assert_eq!(KEYWORDS.get("case").cloned(), Some(TokenKind::Case))
@@ -216,7 +318,7 @@ mod keyword_matching_tests {
     fn function_keyword() {
         assert_eq!(KEYWORDS.get("function").cloned(), Some(TokenKind::Function))
     }
-    
+
     #[test]
     fn has_keyword() {
         assert_eq!(KEYWORDS.get("has").cloned(), Some(TokenKind::Has))
@@ -234,27 +336,33 @@ mod keyword_matching_tests {
 
     #[test]
     fn instanceof_keyword() {
-        assert_eq!(KEYWORDS.get("instanceof").cloned(), Some(TokenKind::InstanceOf))
+        assert_eq!(
+            KEYWORDS.get("instanceof").cloned(),
+            Some(TokenKind::InstanceOf)
+        )
     }
 
     #[test]
     fn me_keyword() {
         assert_eq!(KEYWORDS.get("me").cloned(), Some(TokenKind::Me))
     }
-    
+
     #[test]
     fn module_keyword() {
         assert_eq!(KEYWORDS.get("module").cloned(), Some(TokenKind::Module))
     }
-    
+
     #[test]
     fn private_keyword() {
         assert_eq!(KEYWORDS.get("private").cloned(), Some(TokenKind::Private))
     }
-    
+
     #[test]
     fn protected_keyword() {
-        assert_eq!(KEYWORDS.get("protected").cloned(), Some(TokenKind::Protected))
+        assert_eq!(
+            KEYWORDS.get("protected").cloned(),
+            Some(TokenKind::Protected)
+        )
     }
 
     #[test]
@@ -266,22 +374,22 @@ mod keyword_matching_tests {
     fn return_keyword() {
         assert_eq!(KEYWORDS.get("return").cloned(), Some(TokenKind::Return))
     }
-    
+
     #[test]
     fn self_keyword() {
         assert_eq!(KEYWORDS.get("self").cloned(), Some(TokenKind::SelfKeyword))
     }
-    
+
     #[test]
     fn static_keyword() {
         assert_eq!(KEYWORDS.get("static").cloned(), Some(TokenKind::Static))
     }
-    
+
     #[test]
     fn switch_keyword() {
         assert_eq!(KEYWORDS.get("switch").cloned(), Some(TokenKind::Switch))
     }
-    
+
     #[test]
     fn throw_keyword() {
         assert_eq!(KEYWORDS.get("throw").cloned(), Some(TokenKind::Throw))
@@ -296,7 +404,7 @@ mod keyword_matching_tests {
     fn using_keyword() {
         assert_eq!(KEYWORDS.get("using").cloned(), Some(TokenKind::Using))
     }
-    
+
     #[test]
     fn var_keyword() {
         assert_eq!(KEYWORDS.get("var").cloned(), Some(TokenKind::Var))
@@ -311,4 +419,47 @@ mod keyword_matching_tests {
     fn no_match() {
         assert_eq!(KEYWORDS.get("This isn't a keyword").cloned(), None)
     }
+}
+
+#[cfg(test)]
+mod token_pool_tests {
+    use super::*;
+
+    #[test]
+    fn inits_correctly() {
+        for n in 1..50 {
+            let pool = TokenPool::new(n);
+
+            assert_eq!(pool.len(), 0); // len != capacity
+            assert_eq!(pool.kind.capacity(), n);
+            assert_eq!(pool.lexeme.capacity(), n);
+            assert_eq!(pool.line.capacity(), n);
+            assert_eq!(pool.literal.capacity(), n);
+            assert_eq!(pool.pos.capacity(), n);
+        }
+    }
+
+    #[test]
+    fn init_with_zero_capacity() {
+        let pool = TokenPool::new(0);
+        assert_eq!(pool.kind.capacity(), 0);
+        assert_eq!(pool.lexeme.capacity(), 0);
+        assert_eq!(pool.literal.capacity(), 0);
+        assert_eq!(pool.line.capacity(), 0);
+        assert_eq!(pool.pos.capacity(), 0);
+        assert_eq!(pool.len(), 0);
+    }
+
+    #[test]
+    fn init_with_large_capacity() {
+        let pool = TokenPool::new(10000);
+        assert_eq!(pool.len(), 0);
+        assert_eq!(pool.kind.capacity(), 10000);
+        assert_eq!(pool.lexeme.capacity(), 10000);
+        assert_eq!(pool.literal.capacity(), 10000);
+        assert_eq!(pool.line.capacity(), 10000);
+        assert_eq!(pool.pos.capacity(), 10000);
+    }
+
+    // TODO: finish these tests
 }
