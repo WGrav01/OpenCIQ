@@ -15,6 +15,7 @@
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+mod tokens;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
