@@ -16,7 +16,6 @@
 use phf::phf_map;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(dead_code)]
 pub enum TokenKind {
     // Basic syntax
     LeftParen,
@@ -28,7 +27,6 @@ pub enum TokenKind {
     Semicolon,
 
     // Operators, precedence level 1
-    New,   // Creation
     Bang,  // "!", logical NOT
     Tilde, // "~", bitwise NOT
 
@@ -64,6 +62,7 @@ pub enum TokenKind {
     Identifier, // Variable
 
     // Keywords
+    And, // Logical AND keyword, considered operator of precedence level 5
     As,
     Break,
     Case,
@@ -85,6 +84,8 @@ pub enum TokenKind {
     InstanceOf,
     Me,
     Module,
+    New, // Creation, considered operator of precedence level 1
+    Or,  // Logical OR keyword, considered operator of precedence level 6
     Private,
     Protected,
     Public,
@@ -100,6 +101,7 @@ pub enum TokenKind {
 }
 
 pub static KEYWORDS: phf::Map<&str, TokenKind> = phf_map! {
+    "and" => TokenKind::And,
     "as" => TokenKind::As,
     "break" => TokenKind::Break,
     "case" => TokenKind::Case,
@@ -120,6 +122,7 @@ pub static KEYWORDS: phf::Map<&str, TokenKind> = phf_map! {
     "instanceof" => TokenKind::InstanceOf,
     "me" => TokenKind::Me,
     "module" => TokenKind::Module,
+    "or" => TokenKind::Or,
     "private" => TokenKind::Private,
     "protected" => TokenKind::Protected,
     "public" => TokenKind::Public,
