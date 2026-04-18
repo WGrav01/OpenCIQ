@@ -20,7 +20,7 @@ An open source ConnectIQ toolchain implementation.
 
 # Roadmap/TODO:
 > [!WARNING]
-> This project is in the very early ages of its existence, **and is quite literally unusable at the time.** Features and roadmap are subject to change. 
+> This project is in the very early ages of its existence, **and is quite literally unusable at the time.** Features and roadmap are subject to change. Expect a lot of pushes to main. 
 
 ## Repo
 - [x] Git init
