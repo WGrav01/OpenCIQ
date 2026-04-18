@@ -10,11 +10,11 @@ jobs:
 
     steps:
       - name: Set up tools
-        - uses: https://github.com/dtolnay/rust-toolchain@stable
-          with:
-            components: llvm-tools-preview
-        - uses: https://github.com/taiki-e/install-action@cargo-llvm-cov
-        - uses: https://github.com/taiki-e/install-action@nextest
+        uses: https://github.com/dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+        uses: https://github.com/taiki-e/install-action@cargo-llvm-cov
+        uses: https://github.com/taiki-e/install-action@nextest
 
       - name: Collect coverage data
         run: cargo llvm-cov nextest --profile ci
