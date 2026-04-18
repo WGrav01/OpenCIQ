@@ -27,11 +27,11 @@ An open source ConnectIQ toolchain implementation.
 - [ ] Tests, linting, Miri actions
 - [ ] Nightly builds
 - [ ] Documentation builder 
-- [ ] *Ban AI with an AGENTS.md file (use SDL's new AGENTS.md file?)*
-- [ ] *Megaban Claude*
+- [x] Ban AI with an AGENTS.md file
+- [x] Megaban Claude
 - [ ] Cargo cult in trunk.io/SonarQube/Codecov
 - [ ] Finish this TODO list (so meta!)
-- [ ] Get a C&D from Garmin…
+- [ ] *Get a C&D from Garmin*
 ## Interpreter 
 - [ ] **Tokenization/lexing**
 - [ ] Repl for debugging
