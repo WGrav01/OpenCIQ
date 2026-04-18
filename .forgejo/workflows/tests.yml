@@ -9,11 +9,15 @@ jobs:
     runs-on: codeberg-tiny-lazy
 
     steps:
-      - name: Set up tools
+      - name: Set up Rust 
         uses: https://github.com/dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
+      
+      - name: Install cargo-llvm-cov
         uses: https://github.com/taiki-e/install-action@cargo-llvm-cov
+
+      - name: Install nextest
         uses: https://github.com/taiki-e/install-action@nextest
 
       - name: Collect coverage data
