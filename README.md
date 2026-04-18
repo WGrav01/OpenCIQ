@@ -88,5 +88,5 @@ More info coming soon
 - This project is not affiliated to Garmin in any way, shape, or form.
 - It is based on official documentation and publicly reverse engineering efforts.
 - No source code from Garmin's official toolchain is used.
-- This project is licensed under the [GNU Affero General Public License](https://www.gnu.org/licenses/agpl-3.0.en.html) license. (SPDX: AGPL-3.0-or-later)
+- This project is licensed under the [GNU Affero General Public License](https://www.gnu.org/licenses/agpl-3.0.en.html) license. (SPDX: [AGPL-3.0-or-later](https://spdx.org/licenses/AGPL-3.0-or-later.html))
 - **All contributors are required to sign off of commits to indicate they agree with the Developer Certificate of Origin.**
