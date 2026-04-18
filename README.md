@@ -1,3 +1,20 @@
+<!--
+ Copyright (C) 2026 wgrav
+ 
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU Affero General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+ 
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU Affero General Public License for more details.
+ 
+ You should have received a copy of the GNU Affero General Public License
+ along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
 # OpenCIQ
 An open source ConnectIQ toolchain implementation.
 
@@ -56,7 +73,8 @@ An open source ConnectIQ toolchain implementation.
 - [ ] Figure out how to handle device types
 - [ ] More TODO items coming soon
 ## Web UI:
-- [ ] More TODO items coming soon
+- [ ] More TODO items coming soon.
+-# (This is why the project uses the AGPL license instead of the standard GPL one.) 
 
 **Key: Bolded items are actively being worked on, italicized items are up next.**
 
@@ -70,4 +88,5 @@ More info coming soon
 - This project is not affiliated to Garmin in any way, shape, or form.
 - It is based on official documentation and publicly reverse engineering efforts.
 - No source code from Garmin's official toolchain is used.
+- This project is licensed under the [GNU AGPL-3.0-or-later](https://www.gnu.org/licenses/agpl-3.0.en.html) license.
 - **All contributors are required to sign off of commits to indicate they agree with the Developer Certificate of Origin.**
