@@ -31,7 +31,7 @@ jobs:
 
       - name: Upload Test Results to Trunk.io
         if: ${{ !cancelled() }} # Upload the results even if the tests fail
-        continue-on-error: true # don't fail this job if the uplhttps://code.forgejo.org/actions/checkout@v4oad fails
+        continue-on-error: true # don't fail this job if the upload fails
         uses: https://github.com/trunk-io/analytics-uploader@main
         with:
           junit-paths: "**/*.xml"
