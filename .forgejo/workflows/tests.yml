@@ -9,11 +9,14 @@ jobs:
     runs-on: codeberg-tiny-lazy
 
     steps:
-      - name: Set up Rust 
+      - name: Checkout repository
+        uses: https://github.com/actions/checkout@v4
+
+      - name: Set up Rust
         uses: https://github.com/dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
-      
+
       - name: Install cargo-llvm-cov
         uses: https://github.com/taiki-e/install-action@cargo-llvm-cov
 
