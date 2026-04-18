@@ -1,2 +1,13 @@
 [profile.ci.junit]
 path = "junit.xml"
+store-success-output = false
+store-failure-output = true
+flaky-fail-status = "failure"
+
+[[profile.default.overrides]]
+filter = 'test(important-test)'
+junit.store-success-output = true
+
+[[profile.default.overrides]]
+filter = 'test(known_flaky)'
+junit.flaky-fail-status = "success"

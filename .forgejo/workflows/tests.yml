@@ -26,9 +26,12 @@ jobs:
       - name: Collect coverage data
         run: cargo llvm-cov nextest --profile ci
 
+      - name: Generate LCOV report
+        run: cargo llvm-cov --lcov --output-path lcov.info
+
       - name: Upload Test Results to Trunk.io
         if: ${{ !cancelled() }} # Upload the results even if the tests fail
-        continue-on-error: true # don't fail this job if the upload fails
+        continue-on-error: true # don't fail this job if the uplhttps://code.forgejo.org/actions/checkout@v4oad fails
         uses: https://github.com/trunk-io/analytics-uploader@main
         with:
           junit-paths: "**/*.xml"
@@ -36,6 +39,8 @@ jobs:
           token: ${{ secrets.TRUNK_API_TOKEN }}
 
       - name: Upload coverage data to codecov
+        timeout-minutes: 10
+        continue-on-error: true
         uses: https://github.com/codecov/codecov-action@v5
         with:
           files: lcov.info
