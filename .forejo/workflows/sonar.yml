@@ -1,0 +1,17 @@
+name: SonarCloud
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
+jobs:
+  sonarqube:
+    name: SonarQube
+    runs-on: codeberg-tiny-lazy
+    steps:
+      - uses: https://github.com/actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
