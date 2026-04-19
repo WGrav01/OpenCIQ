@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    runs-on: codeberg-small-lazy
+    runs-on: codeberg-tiny-lazy
 
     steps:
       - name: Checkout repository
@@ -29,18 +29,9 @@ jobs:
       - name: Generate LCOV report
         run: cargo llvm-cov --lcov --output-path lcov.info
 
-      - name: Upload coverage data to codecov
+      - name: Upload test results and coverage to Codecov
         if: ${{ !cancelled() }}
-        uses: https://github.com/codecov/codecov-action@v5
+        uses: https://github.com/codecov/codecov-action@v6
         with:
-          files: lcov.info
+          files: ./target/nextest/ci/junit.xml,./lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
-          report-type: coverage
-      
-      - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: https://github.com/codecov/codecov-action@v5
-        with:
-          files: target/nextest/ci/junit.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report-type: test_results
