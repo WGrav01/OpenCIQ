@@ -58,4 +58,4 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          args: --define sonar.coverageReportPaths ./lcov.info
+          args: --define sonar.coverageReportPaths=./lcov.info
