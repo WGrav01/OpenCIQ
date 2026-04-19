@@ -23,7 +23,7 @@ jobs:
       - name: Install nextest
         uses: https://github.com/taiki-e/install-action@nextest
 
-      - name: Collect coverage data
+      - name: Run tests and collect coverage data
         run: cargo llvm-cov nextest --profile ci
 
       - name: Generate LCOV report
@@ -36,7 +36,9 @@ jobs:
           files: ./target/nextest/ci/junit.xml,./lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: SonarQube Scan
+      - name: SonarQube Upload And Scan
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: https://github.com/SonarSource/sonarqube-scan-action@v7
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
