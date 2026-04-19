@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    runs-on: codeberg-small-lazy
+    runs-on: codeberg-small
 
     steps:
       - name: Checkout repository
