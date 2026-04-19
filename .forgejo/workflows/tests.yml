@@ -15,7 +15,7 @@ jobs:
       - name: Set up Rust
         uses: https://github.com/dtolnay/rust-toolchain@stable
         with:
-          components: llvm-tools-preview
+          components: clippy,llvm-tools-preview
 
       - name: Install cargo-llvm-cov
         uses: https://github.com/taiki-e/install-action@cargo-llvm-cov
@@ -31,7 +31,6 @@ jobs:
 
       - name: SonarQube Upload And Scan
         if: ${{ !cancelled() }}
-        continue-on-error: true
         uses: https://github.com/SonarSource/sonarqube-scan-action@v7
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
