@@ -87,6 +87,9 @@ AI is banned. Check the AGENTS.md file for more information.
 # Design Philosophy
 More info coming soon
 
+# Donations
+OpenCIQ costs virtually nothing to develop. If you would like to financially support the project, please direct all donations to [Codeberg](https://donate.codeberg.org/), the nonprofit provider of hosting and action runners. 
+
 # Legal
 - This project is not affiliated to Garmin in any way, shape, or form.
 - It is based on official documentation and [publicly available](https://www.anvilsecure.com/blog/compromising-garmins-sport-watches-a-deep-dive-into-garminos-and-its-monkeyc-virtual-machine.html) reverse engineering efforts.
