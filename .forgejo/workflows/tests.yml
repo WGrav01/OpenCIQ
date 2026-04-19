@@ -35,3 +35,10 @@ jobs:
         with:
           files: ./target/nextest/ci/junit.xml,./lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: --define sonar.coverageReportPaths ./lcov.info
