@@ -18,7 +18,7 @@
 # OpenCIQ
 An open source ConnectIQ toolchain implementation.
 
-[![codecov](https://codecov.io/github/WGrav01/OpenCIQ/graph/badge.svg?token=9HBZI06FCR)](https://codecov.io/github/WGrav01/OpenCIQ) ![Sonar Quality Gate](https://img.shields.io/sonar/quality_gate/WGrav01_OpenCIQ?server=https%3A%2F%2Fsonarcloud.io)
+![Sonar Quality Gate](https://img.shields.io/sonar/quality_gate/WGrav01_OpenCIQ?server=https%3A%2F%2Fsonarcloud.io)
 
 
 # Roadmap/TODO:
