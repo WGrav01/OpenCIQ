@@ -27,7 +27,7 @@ jobs:
         run: cargo llvm-cov nextest --profile ci
 
       - name: Generate LCOV report
-        run: cargo llvm-cov --json --output-path lcov.json
+        run: cargo llvm-cov --cobertura --output-path lcov.xml
 
       - name: SonarQube Upload And Scan
         if: ${{ !cancelled() }}
@@ -35,4 +35,4 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          args: --define sonar.coverageReportPaths=./lcov.json
+          args: --define sonar.coverageReportPaths=./lcov.xml
