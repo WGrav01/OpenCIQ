@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    runs-on: docker # Self hosted runner
+    runs-on: debian-bookworm # Self hosted runner
 
     steps:
       - name: Checkout repository
