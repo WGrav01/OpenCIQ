@@ -26,43 +26,68 @@ pub enum TokenKind {
     Dot,
     Semicolon,
 
-    // Operators, precedence level 1
-    Bang,  // "!", logical NOT
-    Tilde, // "~", bitwise NOT
+    /// "!", logical NOT
+    Bang,
 
-    // Operators, precedence level 2
-    Star,          // "*", multiplication
-    Slash,         // "/", division
-    Percent,       // "%", modulo
-    Ampersand,     // "&", bitwise and
-    DoubleLess,    // "<<", left shift
+    /// "~", bitwise NOT   
+    Tilde,
+
+    /// "*", multiplication
+    Star,
+
+    /// "/", division   
+    Slash,
+    /// "%", modulo
+    Percent,
+
+    /// "&", bitwise and   
+    Ampersand,
+    /// "<<", left shift   
+    DoubleLess,
+
     DoubleGreater, // "<<", right shift
 
-    // Operators, precedence level 3
-    Plus,        // "+", addittion
-    Minus,       // "-", subtraction
-    VerticalBar, // "|", bitwise OR
-    Caret,       // "^", bitwise XOR
+    /// "+", addittion
+    Plus,
 
-    // Operators, precedence level 4
-    Less,         // "<", less than
-    LessEqual,    // "<=", less than or equals
-    Greater,      // ">", greater than
-    GreaterEqual, // ">=", greater than or equals
-    EqualEqual,   // "==", equal equals
-    BangEqual,    // "!=", not equal
+    /// "-", subtraction           
+    Minus,
 
-    // Operators, precedence level 5
-    DoubleVerticalBar, // "||", logical or
+    /// "|", bitwise OR
+    VerticalBar,
 
-    // Operators, precedence level 6
-    QuestionColon, // "?:", conditional
+    /// "^", bitwise XOR
+    Caret,
 
-    // Literals
-    Identifier, // Variable
+    /// "<", less than
+    Less,
 
-    // Keywords
-    And, // Logical AND keyword, considered operator of precedence level 5
+    /// "<=", less than or equals    
+    LessEqual,
+
+    /// ">", greater than   
+    Greater,
+
+    /// ">=", greater than or equals    
+    GreaterEqual,
+
+    /// "==", equal equals
+    EqualEqual,
+
+    /// "!=", not equal
+    BangEqual,
+
+    /// "||", logical or
+    DoubleVerticalBar,
+
+    /// "?:", conditional
+    QuestionColon,
+
+    /// Variable, function name, etc
+    Identifier,
+
+    /// Logical AND keyword, considered operator of precedence level 5
+    And,
     As,
     Break,
     Case,
@@ -84,8 +109,10 @@ pub enum TokenKind {
     InstanceOf,
     Me,
     Module,
-    New, // Creation, considered operator of precedence level 1
-    Or,  // Logical OR keyword, considered operator of precedence level 6
+    /// Creation, considered operator of precedence level 1
+    New,
+    /// Logical OR keyword, considered operator of precedence level 6
+    Or,
     Private,
     Protected,
     Public,
