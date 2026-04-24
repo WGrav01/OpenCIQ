@@ -23,10 +23,12 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+            ~/.rustup/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('.forgejo/workflows/tests.yml') }}
 
       - name: Set up Rust
+        if: steps.cache-rust.outputs.cache-hit != 'true'
         uses: https://github.com/dtolnay/rust-toolchain@stable
         with:
           components: clippy,llvm-tools-preview
@@ -45,7 +47,7 @@ jobs:
       - name: Generate LCOV report
         run: cargo llvm-cov --lcov --output-path lcov.info
 
-      - name: SonarQube Upload And Scan
+      - name: Scan and upload to SonarQube
         if: ${{ !cancelled() }}
         uses: https://github.com/SonarSource/sonarqube-scan-action@v7
         env:
