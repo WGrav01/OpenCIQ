@@ -9,32 +9,46 @@ jobs:
     runs-on: docker # Self hosted runner
 
     steps:
-      - name: "Quick test for gvisor"
-        run: echo $(uname -a)
-      # - name: Checkout repository
-      #   uses: https://code.forgejo.org/actions/checkout@v6
+      - name: Checkout repository
+        uses: https://code.forgejo.org/actions/checkout@v6
 
-      # - name: Set up Rust
-      #   uses: https://github.com/dtolnay/rust-toolchain@stable
-      #   with:
-      #     components: clippy,llvm-tools-preview
+      - name: Cache Rust
+        id: cache-rust
+        uses: https://code.forgejo.org/actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      # - name: Install cargo-llvm-cov
-      #   uses: https://github.com/taiki-e/install-action@cargo-llvm-cov
+      - name: Set up Rust
+        if: steps.cache-rust.outputs.cache-hit != 'true'
+        uses: https://github.com/dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,llvm-tools-preview
 
-      # - name: Install nextest
-      #   uses: https://github.com/taiki-e/install-action@nextest
+      - name: Install cargo-llvm-cov
+        if: steps.cache-rust.outputs.cache-hit != 'true'
+        uses: https://github.com/taiki-e/install-action@cargo-llvm-cov
 
-      # - name: Run tests and collect coverage data
-      #   run: cargo llvm-cov nextest --profile ci
+      - name: Install nextest
+        if: steps.cache-rust.outputs.cache-hit != 'true'
+        uses: https://github.com/taiki-e/install-action@nextest
 
-      # - name: Generate LCOV report
-      #   run: cargo llvm-cov --lcov --output-path lcov.info
+      - name: Run tests and collect coverage data
+        run: cargo llvm-cov nextest --profile ci
 
-      # - name: SonarQube Upload And Scan
-      #   if: ${{ !cancelled() }}
-      #   uses: https://github.com/SonarSource/sonarqube-scan-action@v7
-      #   env:
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      #   with:
-      #     args: --define sonar.rust.lcov.reportPaths=./lcov.info
+      - name: Generate LCOV report
+        run: cargo llvm-cov --lcov --output-path lcov.info
+
+      - name: SonarQube Upload And Scan
+        if: ${{ !cancelled() }}
+        uses: https://github.com/SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: --define sonar.rust.lcov.reportPaths=./lcov.info
+
