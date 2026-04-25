@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    runs-on: alpine-3.23-node25.9.0-hardened # Self hosted runner
+    runs-on: alpine-3.23-node-lts # Self hosted runner
 
     steps:
       - name: Checkout repository
