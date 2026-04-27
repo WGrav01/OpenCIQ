@@ -155,8 +155,12 @@ static SIMPLE_MATCHES: phf::Map<char, TokenKind> = phf_map!(
     ',' => TokenKind::Comma,
     '-' => TokenKind::Minus,
     '+' => TokenKind::Plus,
-    ';' => TokenKind::Semicolon,
     '*' => TokenKind::Star,
+    '%' => TokenKind::Percent,
+    ';' => TokenKind::Semicolon,
+    '~' => TokenKind::Tilde,
+    '&' => TokenKind::Ampersand,
+    '^' => TokenKind::Caret,
 );
 
 pub fn scan_tokens(source: &str) -> Result<TokenPool, ScanningError> {
@@ -170,12 +174,14 @@ pub fn scan_tokens(source: &str) -> Result<TokenPool, ScanningError> {
         pos += 1;
 
         match current_char {
-            '(' | ')' | '{' | '}' | ',' | '.' | '-' | '+' | ';' | '*' => tokens.push(
-                *SIMPLE_MATCHES.get(&current_char).unwrap(), // safety: all entries that would trigger this branch are in the phf map
-                Literal::Nil,
-                line,
-                pos,
-            ),
+            '(' | ')' | '{' | '}' | ',' | '.' | '-' | '+' | '*' | '%' | '~' | '&' | '^' | ';' => {
+                tokens.push(
+                    *SIMPLE_MATCHES.get(&current_char).unwrap(), // safety: all entries that would trigger this branch are in the phf map
+                    Literal::Nil,
+                    line,
+                    pos,
+                )
+            }
 
             '!' => {
                 // token can be either ! or just !=.
@@ -244,6 +250,20 @@ pub fn scan_tokens(source: &str) -> Result<TokenPool, ScanningError> {
                     pos += 1;
                 } else {
                     tokens.push(TokenKind::VerticalBar, Literal::Nil, line, pos);
+                }
+            }
+
+            '?' => {
+                if chars.peek() == Some(&':') {
+                    chars.next();
+                    pos += 1;
+                    tokens.push(TokenKind::QuestionColon, Literal::Nil, line, pos);
+                } else {
+                    return Err(ScanningError::UnexpectedCharacter {
+                        line,
+                        pos,
+                        bad_char: current_char,
+                    });
                 }
             }
 
