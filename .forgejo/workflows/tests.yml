@@ -28,11 +28,17 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('.forgejo/workflows/tests.yml') }}
 
       - name: Set up Rust
-        # if: steps.cache-rust.outputs.cache-hit != 'true'
+        if: steps.cache-rust.outputs.cache-hit != 'true'
         uses: https://github.com/dtolnay/rust-toolchain@stable
         with:
           components: clippy,llvm-tools-preview
 
+      - name: Restore environment
+        if: steps.cache-rust.outputs.cache-hit == 'true'
+        run: |
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          source "$HOME/.cargo/env"
+      
       - name: Install cargo-llvm-cov
         if: steps.cache-rust.outputs.cache-hit != 'true'
         uses: https://github.com/taiki-e/install-action@cargo-llvm-cov
