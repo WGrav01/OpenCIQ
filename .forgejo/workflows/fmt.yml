@@ -1,0 +1,20 @@
+name: Check formatting
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: debian-trixie-node-lts # Self hosted runner
+
+    steps:
+      - name: Checkout repository
+        uses: https://code.forgejo.org/actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: https://github.com/dtolnay/rust-toolchain@stable
+
+      - name: Format code
+        run: cargo fmt --check
