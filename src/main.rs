@@ -15,7 +15,7 @@
 
 use clap::{Parser, Subcommand};
 use rustyline::{DefaultEditor, error::ReadlineError};
-use std::path::PathBuf;
+use std::{fs::File, io::Read, path::PathBuf};
 
 use crate::scanner::scan_tokens;
 mod errors;
@@ -31,7 +31,7 @@ struct Args {
 
 #[derive(Debug, Subcommand, Clone)]
 enum Commands {
-    Parse {
+    Tokenize {
         #[arg()]
         file: PathBuf,
     },
@@ -42,11 +42,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(cmd) = args.cmd {
         match cmd {
-            Commands::Parse { .. } => todo!(), // TODO: Implement token parser
+            Commands::Tokenize { file } => tokenize_file(file),
         }
     } else {
         run_prompt()
     }
+}
+
+fn tokenize_file(path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let mut file = File::open(path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+
+    let tokens = scan_tokens(&contents);
+
+    println!("{:?}", tokens);
+
+    Ok(())
 }
 
 fn run_prompt() -> Result<(), Box<dyn std::error::Error>> {
