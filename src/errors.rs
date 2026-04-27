@@ -15,7 +15,6 @@
 
 use std::fmt;
 
-// CODE SMELL: missing PartialEq prevents direct assert_eq! on errors in tests. Also missing std::error::Error impl — the standard idiomatic Rust error trait.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScanningError {
     UnexpectedCharacter {

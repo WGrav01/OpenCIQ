@@ -210,7 +210,7 @@ pub enum Literal {
 }
 
 /// A structure of arrays containing tokens
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TokenPool {
     /// The type of the token
     kind: Vec<TokenKind>,
