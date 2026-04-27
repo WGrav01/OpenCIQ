@@ -25,14 +25,14 @@ An open source ConnectIQ toolchain implementation.
 > [!WARNING]
 > This project is in the very early ages of its existence, **and is quite literally unusable at the time.** Features and roadmap are subject to change. Expect a lot of pushes to main. 
 
-- [] Interpreter
-- [] Compiler
-- [] Bytecode VM
-- [] LSP
-- [] Project manager
-- [] Package manager
-- [] Debugger
-- [] Web UI
+- [ ] Interpreter
+- [ ] Compiler
+- [ ] Bytecode VM
+- [ ] LSP
+- [ ] Project manager
+- [ ] Package manager
+- [ ] Debugger
+- [ ] Web UI
 
 **Key: Bolded items are actively being worked on, italicized items are up next.**
 
