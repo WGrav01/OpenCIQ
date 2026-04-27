@@ -20,7 +20,7 @@ use phf::phf_map;
 
 use crate::{
     errors::ScanningError,
-    tokens::{KEYWORDS, Literal, TokenKind, TokenPool},
+    tokens::{Literal, TokenKind, TokenPool, KEYWORDS},
 };
 
 fn scan_string(
@@ -85,27 +85,18 @@ fn scan_number(
                     bad_char: next_char,
                 });
             }
-            decimal_point_seen = true;
-            number_text.push(next_char);
-            chars.next();
-            *pos += 1;
-
-            match chars.peek() {
-                Some(c) if !c.is_ascii_digit() => {
-                    return Err(ScanningError::UnexpectedCharacter {
-                        line,
-                        pos: *pos,
-                        bad_char: *c,
-                    });
+            // Only consume the dot if it's followed by a digit
+            match chars.clone().nth(1) {
+                Some(c) if c.is_ascii_digit() => {
+                    decimal_point_seen = true;
+                    number_text.push(next_char);
+                    chars.next();
+                    *pos += 1;
                 }
-                None => {
-                    return Err(ScanningError::UnexpectedCharacter {
-                        line,
-                        pos: *pos,
-                        bad_char: '.',
-                    });
+                _ => {
+                    // Dot is not part of this number; break and let main scanner handle it
+                    break;
                 }
-                _ => {}
             }
         } else {
             break;
@@ -756,7 +747,6 @@ mod scanner_tests {
 
     /// Verifies a method-call dot should not be absorbed into a number.
     #[test]
-    #[ignore = "BUG: trailing-dot number scanning consumes '.' even when not followed by a digit"]
     fn number_then_dot_method_call() {
         let tokens = scan_ok("42.foo");
         assert_eq!(tokens.len(), 3);
@@ -810,41 +800,34 @@ mod scanner_tests {
     }
 
     /// Verifies that a decimal point immediately followed by a non-digit letter
-    /// returns UnexpectedCharacter naming the letter (not the dot).
+    /// produces separate tokens: Number, Dot, Identifier.
     #[test]
     fn number_dot_followed_by_letter_is_error() {
-        match scan_tokens("1.x") {
-            Err(ScanningError::UnexpectedCharacter { bad_char, .. }) => {
-                assert_eq!(bad_char, 'x');
-            }
-            Ok(tokens) => panic!(
-                "expected UnexpectedCharacter, got Ok with {} tokens",
-                tokens.len()
-            ),
-            Err(other) => panic!("expected UnexpectedCharacter, got {other:?}"),
-        }
+        let tokens = scan_ok("1.x");
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens.kind_at(0), Some(TokenKind::Number));
+        assert_eq!(tokens.kind_at(1), Some(TokenKind::Dot));
+        assert_eq!(tokens.kind_at(2), Some(TokenKind::Identifier));
+        assert_eq!(
+            tokens.literal_at(0),
+            Some(&Literal::Number("1".to_string()))
+        );
     }
 
-    /// Verifies that a decimal point at end of input (no digit follows) returns
-    /// an error — the dot has been consumed but there is no digit to complete
-    /// the fractional part.
+    /// Verifies that a decimal point at end of input (no digit follows) produces
+    /// separate Number and Dot tokens rather than an error.
     #[test]
     fn number_trailing_dot_at_eof_is_error() {
-        // After consuming '1' and then '.', peek() returns None, so the
-        // "no digit follows dot" guard must still fire.
-        // If the guard only runs when peek() is Some, this will instead succeed
-        // and emit Number("1.") which is also wrong; either way the test fails.
-        match scan_tokens("1.") {
-            Err(ScanningError::UnexpectedCharacter { bad_char: '.', .. }) => {}
-            Err(ScanningError::UnterminatedString { .. }) => {
-                panic!("wrong error kind: got UnterminatedString instead of UnexpectedCharacter")
-            }
-            Ok(tokens) => panic!(
-                "expected UnexpectedCharacter for trailing dot, got Ok with {} tokens",
-                tokens.len()
-            ),
-            Err(other) => panic!("expected UnexpectedCharacter('.'), got {other:?}"),
-        }
+        // The dot is not part of the number if it's not followed by a digit,
+        // so "1." should produce two tokens: Number("1") and Dot.
+        let tokens = scan_ok("1.");
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens.kind_at(0), Some(TokenKind::Number));
+        assert_eq!(tokens.kind_at(1), Some(TokenKind::Dot));
+        assert_eq!(
+            tokens.literal_at(0),
+            Some(&Literal::Number("1".to_string()))
+        );
     }
 
     /// Verifies the number loop exits cleanly when a non-digit non-dot character
