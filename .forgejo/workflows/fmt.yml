@@ -13,10 +13,31 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache Rust
+        id: cache-rust
+        uses: https://code.forgejo.org/actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/env
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.rustup/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('.forgejo/workflows/fmt.yml') }}
+      
       - name: Set up Rust
+        if: steps.cache-rust.outputs.cache-hit != 'true'
         uses: https://github.com/dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
+
+      - name: Restore environment
+        if: steps.cache-rust.outputs.cache-hit == 'true'
+        run: |
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          source "$HOME/.cargo/env"
         
       - name: Format code
         run: cargo fmt --check
