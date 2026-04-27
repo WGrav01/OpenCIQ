@@ -21,61 +21,18 @@ An open source ConnectIQ toolchain implementation.
 ![Sonar Quality Gate](https://img.shields.io/sonar/quality_gate/WGrav01_OpenCIQ?server=https%3A%2F%2Fsonarcloud.io)
 
 
-# Roadmap/TODO:
+# Roadmap:
 > [!WARNING]
 > This project is in the very early ages of its existence, **and is quite literally unusable at the time.** Features and roadmap are subject to change. Expect a lot of pushes to main. 
 
-## Repo
-- [x] Git init
-- [ ] Tests, linting, Miri actions
-- [ ] Nightly builds
-- [ ] Documentation builder 
-- [x] Ban AI with an AGENTS.md file
-- [x] Megaban Claude
-- [ ] Cargo cult in trunk.io/SonarQube/Codecov
-- [ ] Finish this TODO list (so meta!)
-- [ ] *Get a C&D from Garmin*
-## Interpreter 
-- [ ] **Tokenization/lexing**
-- [ ] Repl for debugging
-- [ ] AST generation
-- [ ] Expression evaluation
-- [ ] State
-- [ ] Control flow
-- [ ] Classes, functions, etc.
-- [ ] More TODO items coming soon
-## Compiler
-- [ ] Finish the interpreter to use as a base
-- [ ] Optimization passes
-- [ ] Packaging
-- [ ] More TODO items coming soon
-## Bytecode VM
-- [ ] Finish the compiler
-- [ ] Decide if JIT is worth it (Cranelift)
-- [ ] More TODO items coming soon
-## Build System
-- [ ] Multi file linking
-- [ ] Project TOML file parsing
-- [ ] Whole project compilation
-- [ ] Test system
-- [ ] Lock files
-- [ ] Package manager (note: the package manager will likely not have a centralized repository)
-## LSP
-- [ ] More info coming soon 
-## MCP
-- [ ] Figure out if there should even be an MCP
-## Debugger
-- [ ] Decide between GDB server or internal debugger system
-- [ ] More TODO items coming soon
-## Type Enforcement
-- [ ] Plan out a superset of Monkey C that is statically typed
-- [ ] More TODO items coming soon
-## Simulator
-- [ ] Decide on what to use to show windows and content
-- [ ] Figure out how to handle device types
-- [ ] More TODO items coming soon
-## Web UI:
-- [ ] More info coming soon (this is why the project uses the AGPL license instead of the standard GPL one) 
+- [] Interpreter
+- [] Compiler
+- [] Bytecode VM
+- [] LSP
+- [] Project manager
+- [] Package manager
+- [] Debugger
+- [] Web UI
 
 **Key: Bolded items are actively being worked on, italicized items are up next.**
 
