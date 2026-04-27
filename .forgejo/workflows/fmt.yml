@@ -16,7 +16,7 @@ jobs:
       - name: Set up Rust
         uses: https://github.com/dtolnay/rust-toolchain@stable
         with:
-          components: cargo-fmt
+          components: rustfmt
         
       - name: Format code
         run: cargo fmt --check
