@@ -17,7 +17,7 @@ use phf::phf_map;
 
 use crate::{
     errors::ScanningError,
-    tokens::{KEYWORDS, Literal, TokenKind, TokenPool},
+    tokens::{Literal, TokenKind, TokenPool, KEYWORDS},
 };
 
 static SIMPLE_MATCHES: phf::Map<char, TokenKind> = phf_map!(
@@ -657,36 +657,32 @@ mod scanner_tests {
         }
     }
 
-    /// Verifies terminated strings should emit string tokens.
+    /// Verifies terminated strings emit a String token with the correct literal.
     #[test]
-    #[ignore = "BUG: no token is ever pushed after a terminated string literal in scanner.rs"]
     fn string_literal_pushes_string_token() {
         let tokens = scan_ok("\"hello\"");
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens.kind_at(0), Some(TokenKind::String));
     }
 
-    /// Verifies a single equals sign should emit an assignment token.
+    /// Verifies a single equals sign emits an Equal token.
     #[test]
-    #[ignore = "BUG: single '=' is silently dropped instead of emitting TokenKind::Equal"]
     fn single_equal_emits_equal_token() {
         let tokens = scan_ok("=");
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens.kind_at(0), Some(TokenKind::Equal));
     }
 
-    /// Verifies a right brace should emit a right-brace token.
+    /// Verifies a right brace emits a RightBrace token.
     #[test]
-    #[ignore = "BUG: no '}' arm exists, so right brace never emits TokenKind::RightBrace"]
     fn right_brace_emits_token() {
         let tokens = scan_ok("}");
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens.kind_at(0), Some(TokenKind::RightBrace));
     }
 
-    /// Verifies identifiers should be allowed to start with underscore.
+    /// Verifies identifiers starting with underscore are recognized.
     #[test]
-    #[ignore = "BUG: identifier-start check uses is_alphabetic() and rejects leading underscore"]
     fn identifier_underscore_prefix_allowed() {
         let tokens = scan_ok("_foo");
         assert_eq!(tokens.len(), 1);
@@ -704,11 +700,99 @@ mod scanner_tests {
         assert_eq!(tokens.kind_at(2), Some(TokenKind::Identifier));
     }
 
-    /// Verifies keywords should not carry identifier literals.
+    /// Verifies keywords carry Literal::Nil, not Literal::Identifier.
     #[test]
-    #[ignore = "BUG: keywords get Literal::Identifier(text) instead of semantic literals like Nil or Boolean"]
     fn keyword_carries_nil_literal() {
         let tokens = scan_ok("var");
         assert_eq!(tokens.literal_at(0), Some(&Literal::Nil));
+    }
+
+    /// Verifies a backslash inside a string sets the escaped flag, preventing the
+    /// immediately following '"' from terminating the string early.
+    #[test]
+    fn string_escaped_quote_does_not_terminate() {
+        // Source: "hello\"world" — the \" should not close the string.
+        // The scanner should continue until the final unescaped '"'.
+        let result = scan_tokens("\"hello\\\"world\"");
+        // If the escaped-quote logic is broken the scanner terminates at \" and
+        // then sees 'w' as a stray identifier, producing more than one token.
+        // Regardless of what content the token carries, exactly one token should
+        // be emitted and it must be TokenKind::String.
+        match result {
+            Ok(tokens) => {
+                assert_eq!(tokens.len(), 1, "expected exactly one String token");
+                assert_eq!(tokens.kind_at(0), Some(TokenKind::String));
+            }
+            Err(e) => panic!("expected Ok, got error: {e:?}"),
+        }
+    }
+
+    /// Verifies that a backslash alone (at end of string content before closing
+    /// quote) sets escaped, so the closing '"' clears escaped rather than
+    /// terminating — the string is then unterminated and must return an error.
+    #[test]
+    fn string_trailing_backslash_makes_unterminated() {
+        // Source: "hello\" — backslash escapes the closing quote, so the string
+        // is never terminated.
+        match scan_tokens("\"hello\\\"") {
+            Err(ScanningError::UnterminatedString { .. }) => {}
+            Ok(tokens) => panic!(
+                "expected UnterminatedString, got Ok with {} tokens",
+                tokens.len()
+            ),
+            Err(other) => panic!("expected UnterminatedString, got {other:?}"),
+        }
+    }
+
+    /// Verifies that a decimal point immediately followed by a non-digit letter
+    /// returns UnexpectedCharacter naming the letter (not the dot).
+    #[test]
+    fn number_dot_followed_by_letter_is_error() {
+        match scan_tokens("1.x") {
+            Err(ScanningError::UnexpectedCharacter { bad_char, .. }) => {
+                assert_eq!(bad_char, 'x');
+            }
+            Ok(tokens) => panic!(
+                "expected UnexpectedCharacter, got Ok with {} tokens",
+                tokens.len()
+            ),
+            Err(other) => panic!("expected UnexpectedCharacter, got {other:?}"),
+        }
+    }
+
+    /// Verifies that a decimal point at end of input (no digit follows) returns
+    /// an error — the dot has been consumed but there is no digit to complete
+    /// the fractional part.
+    #[test]
+    fn number_trailing_dot_at_eof_is_error() {
+        // After consuming '1' and then '.', peek() returns None, so the
+        // "no digit follows dot" guard must still fire.
+        // If the guard only runs when peek() is Some, this will instead succeed
+        // and emit Number("1.") which is also wrong; either way the test fails.
+        match scan_tokens("1.") {
+            Err(ScanningError::UnexpectedCharacter { bad_char: '.', .. }) => {}
+            Err(ScanningError::UnterminatedString { .. }) => {
+                panic!("wrong error kind: got UnterminatedString instead of UnexpectedCharacter")
+            }
+            Ok(tokens) => panic!(
+                "expected UnexpectedCharacter for trailing dot, got Ok with {} tokens",
+                tokens.len()
+            ),
+            Err(other) => panic!("expected UnexpectedCharacter('.'), got {other:?}"),
+        }
+    }
+
+    /// Verifies the number loop exits cleanly when a non-digit non-dot character
+    /// follows an integer, emitting two separate tokens.
+    #[test]
+    fn number_followed_by_operator_breaks_loop() {
+        let tokens = scan_ok("42+");
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens.kind_at(0), Some(TokenKind::Number));
+        assert_eq!(tokens.kind_at(1), Some(TokenKind::Plus));
+        assert_eq!(
+            tokens.literal_at(0),
+            Some(&Literal::Number("42".to_string()))
+        );
     }
 }
