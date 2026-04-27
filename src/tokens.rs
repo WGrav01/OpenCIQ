@@ -15,7 +15,7 @@
 
 use phf::phf_map;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub enum TokenKind {
     // Basic syntax
     LeftParen,
@@ -29,7 +29,7 @@ pub enum TokenKind {
     /// "!", logical NOT
     Bang,
 
-    /// "~", bitwise NOT   
+    /// "~", bitwise NOT   y)
     Tilde,
 
     /// "*", multiplication
@@ -71,10 +71,12 @@ pub enum TokenKind {
     /// ">=", greater than or equals    
     GreaterEqual,
 
+    /// '=', for setting vars
+    Equal,
+
     /// "==", equal equals
     EqualEqual,
 
-    /// "!=", not equal
     BangEqual,
 
     /// "||", logical or
@@ -85,6 +87,15 @@ pub enum TokenKind {
 
     /// Variable, function name, etc
     Identifier,
+
+    /// Literal float or integer
+    Number,
+
+    /// Literal boolean (true, or false)
+    Boolean,
+
+    /// String literal
+    String,
 
     /// Logical AND keyword, considered operator of precedence level 5
     And,
@@ -140,6 +151,7 @@ pub static KEYWORDS: phf::Map<&str, TokenKind> = phf_map! {
     "else" => TokenKind::Else,
     "enum" => TokenKind::Enum,
     "extends" => TokenKind::Extends,
+    "false" => TokenKind::Boolean,
     "finally" => TokenKind::Finally,
     "for" => TokenKind::For,
     "function" => TokenKind::Function,
@@ -158,10 +170,11 @@ pub static KEYWORDS: phf::Map<&str, TokenKind> = phf_map! {
     "static" => TokenKind::Static,
     "switch" => TokenKind::Switch,
     "throw" => TokenKind::Throw,
+    "true" => TokenKind::Boolean,
     "try" => TokenKind::Try,
     "using" => TokenKind::Using,
     "var" => TokenKind::Var,
-    "while" => TokenKind::While
+    "while" => TokenKind::While,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -169,17 +182,8 @@ pub enum Literal {
     /// Variable name. Might get removed from this enum
     Identifier(String),
 
-    /// 32-bit signed integers
-    Int(i32),
-
-    /// 32-bit floating point numbers
-    Float(f32),
-
-    /// 64-bit signed integers
-    Long(i64),
-
-    /// 64-bit floating point numbers
-    Double(f64),
+    /// Can be any type, float, int, etc.
+    Number(String),
 
     /// true and false
     Boolean(bool),
@@ -204,12 +208,10 @@ pub enum Literal {
 }
 
 /// A structure of arrays containing tokens
+#[derive(Debug)]
 pub struct TokenPool {
     /// The type of the token
     kind: Vec<TokenKind>,
-
-    /// The text content of the token, if applicable
-    lexeme: Vec<String>,
 
     /// The literal value of the token. Nil if not applicable
     literal: Vec<Literal>,
@@ -227,7 +229,6 @@ impl TokenPool {
     pub fn new(capacity: usize) -> TokenPool {
         TokenPool {
             kind: Vec::with_capacity(capacity),
-            lexeme: Vec::with_capacity(capacity),
             literal: Vec::with_capacity(capacity),
             line: Vec::with_capacity(capacity),
             pos: Vec::with_capacity(capacity),
@@ -249,11 +250,6 @@ impl TokenPool {
         self.literal.get(index)
     }
 
-    /// Returns a borrowed lexeme string at a specified index, or none if out of bounds
-    pub fn lexeme_at(&self, index: usize) -> Option<&str> {
-        self.lexeme.get(index).map(|s| s.as_str())
-    }
-
     /// Returns the token at an index's line number, or nothing if out of bounds
     pub fn line_at(&self, index: usize) -> Option<usize> {
         self.line.get(index).copied()
@@ -265,16 +261,8 @@ impl TokenPool {
     }
 
     /// Safely appends a new token to the SoA
-    pub fn push(
-        &mut self,
-        kind: TokenKind,
-        lexeme: String,
-        literal: Literal,
-        line: usize,
-        pos: usize,
-    ) {
+    pub fn push(&mut self, kind: TokenKind, literal: Literal, line: usize, pos: usize) {
         self.kind.push(kind);
-        self.lexeme.push(lexeme);
         self.literal.push(literal);
         self.line.push(line);
         self.pos.push(pos);
@@ -447,6 +435,16 @@ mod keyword_matching_tests {
     }
 
     #[test]
+    fn true_keyword() {
+        assert_eq!(KEYWORDS.get("true").cloned(), Some(TokenKind::Boolean))
+    }
+
+    #[test]
+    fn false_keyword() {
+        assert_eq!(KEYWORDS.get("false").cloned(), Some(TokenKind::Boolean))
+    }
+
+    #[test]
     fn no_match() {
         assert_eq!(KEYWORDS.get("This isn't a keyword").cloned(), None)
     }
@@ -464,7 +462,6 @@ mod token_pool_init_tests {
 
             assert_eq!(pool.len(), 0); // len != capacity
             assert_eq!(pool.kind.capacity(), n);
-            assert_eq!(pool.lexeme.capacity(), n);
             assert_eq!(pool.line.capacity(), n);
             assert_eq!(pool.literal.capacity(), n);
             assert_eq!(pool.pos.capacity(), n);
@@ -476,7 +473,6 @@ mod token_pool_init_tests {
     fn init_with_zero_capacity() {
         let pool = TokenPool::new(0);
         assert_eq!(pool.kind.capacity(), 0);
-        assert_eq!(pool.lexeme.capacity(), 0);
         assert_eq!(pool.literal.capacity(), 0);
         assert_eq!(pool.line.capacity(), 0);
         assert_eq!(pool.pos.capacity(), 0);
@@ -489,7 +485,6 @@ mod token_pool_init_tests {
         let pool = TokenPool::new(10000);
         assert_eq!(pool.len(), 0);
         assert_eq!(pool.kind.capacity(), 10000);
-        assert_eq!(pool.lexeme.capacity(), 10000);
         assert_eq!(pool.literal.capacity(), 10000);
         assert_eq!(pool.line.capacity(), 10000);
         assert_eq!(pool.pos.capacity(), 10000);
@@ -508,36 +503,36 @@ mod literal_tests {
         assert_ne!(lit, Literal::Identifier("bar".to_string()));
     }
 
-    /// Test Literal::Int variant
+    /// Test Literal::Number variant with integer-form text
     #[test]
-    fn literal_int() {
-        let lit = Literal::Int(42);
-        assert_eq!(lit, Literal::Int(42));
-        assert_ne!(lit, Literal::Int(0));
+    fn literal_number_integer() {
+        let lit = Literal::Number("42".to_string());
+        assert_eq!(lit, Literal::Number("42".to_string()));
+        assert_ne!(lit, Literal::Number("0".to_string()));
     }
 
-    /// Test Literal::Float variant
+    /// Test Literal::Number variant with float-form text
     #[test]
-    fn literal_float() {
-        let lit = Literal::Float(3.14);
-        assert_eq!(lit, Literal::Float(3.14));
-        assert_ne!(lit, Literal::Float(2.71));
+    fn literal_number_float() {
+        let lit = Literal::Number("3.14".to_string());
+        assert_eq!(lit, Literal::Number("3.14".to_string()));
+        assert_ne!(lit, Literal::Number("2.71".to_string()));
     }
 
-    /// Test Literal::Long variant
+    /// Test Literal::Number variant with large integer-form text
     #[test]
-    fn literal_long() {
-        let lit = Literal::Long(9999999999i64);
-        assert_eq!(lit, Literal::Long(9999999999i64));
-        assert_ne!(lit, Literal::Long(0i64));
+    fn literal_number_large_integer() {
+        let lit = Literal::Number("9999999999".to_string());
+        assert_eq!(lit, Literal::Number("9999999999".to_string()));
+        assert_ne!(lit, Literal::Number("0".to_string()));
     }
 
-    /// Test Literal::Double variant
+    /// Test Literal::Number variant with high-precision float-form text
     #[test]
-    fn literal_double() {
-        let lit = Literal::Double(2.718281828);
-        assert_eq!(lit, Literal::Double(2.718281828));
-        assert_ne!(lit, Literal::Double(1.0));
+    fn literal_number_high_precision_float() {
+        let lit = Literal::Number("2.718281828".to_string());
+        assert_eq!(lit, Literal::Number("2.718281828".to_string()));
+        assert_ne!(lit, Literal::Number("1.0".to_string()));
     }
 
     /// Test Literal::Boolean variant - true
@@ -608,7 +603,7 @@ mod literal_tests {
     #[test]
     fn literal_nil_not_equal_to_others() {
         let nil_lit = Literal::Nil;
-        assert_ne!(nil_lit, Literal::Int(0));
+        assert_ne!(nil_lit, Literal::Number("0".to_string()));
         assert_ne!(nil_lit, Literal::Str("".to_string()));
         assert_ne!(nil_lit, Literal::Boolean(false));
     }
@@ -616,8 +611,14 @@ mod literal_tests {
     /// Test Literal equality - same type, same value
     #[test]
     fn literal_equality_same() {
-        assert_eq!(Literal::Int(1), Literal::Int(1));
-        assert_eq!(Literal::Float(1.0), Literal::Float(1.0));
+        assert_eq!(
+            Literal::Number("1".to_string()),
+            Literal::Number("1".to_string())
+        );
+        assert_eq!(
+            Literal::Number("1.0".to_string()),
+            Literal::Number("1.0".to_string())
+        );
         assert_eq!(
             Literal::Str("test".to_string()),
             Literal::Str("test".to_string())
@@ -627,17 +628,30 @@ mod literal_tests {
     /// Test Literal equality - same type, different value
     #[test]
     fn literal_equality_different_value() {
-        assert_ne!(Literal::Int(1), Literal::Int(2));
-        assert_ne!(Literal::Float(1.0), Literal::Float(2.0));
+        assert_ne!(
+            Literal::Number("1".to_string()),
+            Literal::Number("2".to_string())
+        );
+        assert_ne!(
+            Literal::Number("1.0".to_string()),
+            Literal::Number("2.0".to_string())
+        );
         assert_ne!(Literal::Str("a".to_string()), Literal::Str("b".to_string()));
     }
 
-    /// Test Literal equality - different type
+    /// Test Literal equality - different variants are not equal even when text content matches
     #[test]
     fn literal_equality_different_type() {
-        assert_ne!(Literal::Int(42), Literal::Float(42.0));
-        assert_ne!(Literal::Int(1), Literal::Boolean(true));
-        assert_ne!(Literal::Str("42".to_string()), Literal::Int(42));
+        assert_ne!(Literal::Number("1".to_string()), Literal::Boolean(true));
+        assert_ne!(
+            Literal::Str("42".to_string()),
+            Literal::Number("42".to_string())
+        );
+        assert_ne!(
+            Literal::Identifier("x".to_string()),
+            Literal::Str("x".to_string())
+        );
+        assert_ne!(Literal::Number("3".to_string()), Literal::Char('3'));
     }
 
     /// Test Literal clone behavior
@@ -648,12 +662,13 @@ mod literal_tests {
         assert_eq!(lit, cloned);
     }
 
-    /// Test Literal copy behavior for Copy types (i32 is Copy)
+    /// Test Literal::Number clone behavior — Number now stores a String, so cloning
+    /// must produce an independent owned copy that compares equal to the original.
     #[test]
-    fn literal_copy_types_int() {
-        let lit: Literal = Literal::Int(5);
-        let copied = lit; // Copy allowed for i32
-        assert_eq!(copied, Literal::Int(5));
+    fn literal_number_clone() {
+        let lit = Literal::Number("123".to_string());
+        let cloned = lit.clone();
+        assert_eq!(lit, cloned);
     }
 }
 
@@ -667,16 +682,15 @@ mod token_pool_push_tests {
         let mut pool = TokenPool::new(10);
         assert_eq!(pool.len(), 0);
 
-        pool.push(TokenKind::Identifier, "foo".to_string(), Literal::Nil, 1, 1);
-        assert_eq!(pool.len(), 1);
-
         pool.push(
             TokenKind::Identifier,
-            "42".to_string(),
-            Literal::Int(42),
+            Literal::Identifier("foo".to_string()),
             1,
-            5,
+            1,
         );
+        assert_eq!(pool.len(), 1);
+
+        pool.push(TokenKind::Number, Literal::Number("42".to_string()), 1, 5);
         assert_eq!(pool.len(), 2);
     }
 
@@ -685,55 +699,30 @@ mod token_pool_push_tests {
     fn push_various_token_kinds() {
         let mut pool = TokenPool::new(10);
 
-        pool.push(TokenKind::LeftParen, "(".to_string(), Literal::Nil, 1, 1);
-        pool.push(TokenKind::RightParen, ")".to_string(), Literal::Nil, 1, 2);
-        pool.push(TokenKind::Plus, "+".to_string(), Literal::Nil, 1, 3);
-        pool.push(TokenKind::EqualEqual, "==".to_string(), Literal::Nil, 1, 4);
-        pool.push(TokenKind::Identifier, "var".to_string(), Literal::Nil, 1, 5);
+        pool.push(TokenKind::LeftParen, Literal::Nil, 1, 1);
+        pool.push(TokenKind::RightParen, Literal::Nil, 1, 2);
+        pool.push(TokenKind::Plus, Literal::Nil, 1, 3);
+        pool.push(TokenKind::EqualEqual, Literal::Nil, 1, 4);
+        pool.push(TokenKind::Identifier, Literal::Nil, 1, 5);
 
         assert_eq!(pool.len(), 5);
     }
 
-    /// Tests push() with various Literal types (Identifier, Int, Float, Str, Boolean).
+    /// Tests push() with various Literal types (Identifier, Number, Str, Boolean).
     #[test]
     fn push_various_literal_types() {
         let mut pool = TokenPool::new(10);
 
         pool.push(
             TokenKind::Identifier,
-            "x".to_string(),
             Literal::Identifier("x".to_string()),
             1,
             1,
         );
-        pool.push(
-            TokenKind::Identifier,
-            "42".to_string(),
-            Literal::Int(42),
-            1,
-            2,
-        );
-        pool.push(
-            TokenKind::Identifier,
-            "3.14".to_string(),
-            Literal::Float(3.14),
-            1,
-            3,
-        );
-        pool.push(
-            TokenKind::Identifier,
-            "hello".to_string(),
-            Literal::Str("hello".to_string()),
-            1,
-            4,
-        );
-        pool.push(
-            TokenKind::Identifier,
-            "true".to_string(),
-            Literal::Boolean(true),
-            1,
-            5,
-        );
+        pool.push(TokenKind::Number, Literal::Number("42".to_string()), 1, 2);
+        pool.push(TokenKind::Number, Literal::Number("3.14".to_string()), 1, 3);
+        pool.push(TokenKind::String, Literal::Str("hello".to_string()), 1, 4);
+        pool.push(TokenKind::Boolean, Literal::Boolean(true), 1, 5);
 
         assert_eq!(pool.len(), 5);
     }
@@ -743,44 +732,18 @@ mod token_pool_push_tests {
     fn push_sequence_state() {
         let mut pool = TokenPool::new(5);
 
-        pool.push(TokenKind::Var, "var".to_string(), Literal::Nil, 1, 1);
+        pool.push(TokenKind::Var, Literal::Nil, 1, 1);
         pool.push(
             TokenKind::Identifier,
-            "x".to_string(),
             Literal::Identifier("x".to_string()),
             1,
             5,
         );
-        pool.push(TokenKind::EqualEqual, "=".to_string(), Literal::Nil, 1, 7);
-        pool.push(
-            TokenKind::Identifier,
-            "42".to_string(),
-            Literal::Int(42),
-            1,
-            9,
-        );
-        pool.push(TokenKind::Semicolon, ";".to_string(), Literal::Nil, 1, 12);
+        pool.push(TokenKind::Equal, Literal::Nil, 1, 7);
+        pool.push(TokenKind::Number, Literal::Number("42".to_string()), 1, 9);
+        pool.push(TokenKind::Semicolon, Literal::Nil, 1, 12);
 
         assert_eq!(pool.len(), 5);
-    }
-
-    /// Tests push() handles empty strings as lexeme values.
-    #[test]
-    fn push_empty_strings() {
-        let mut pool = TokenPool::new(5);
-
-        pool.push(TokenKind::Identifier, "".to_string(), Literal::Nil, 1, 1);
-        pool.push(
-            TokenKind::Identifier,
-            "".to_string(),
-            Literal::Str("".to_string()),
-            1,
-            2,
-        );
-
-        assert_eq!(pool.len(), 2);
-        assert_eq!(pool.lexeme_at(0), Some(""));
-        assert_eq!(pool.lexeme_at(1), Some(""));
     }
 
     /// Tests push() correctly tracks line numbers across multiple token insertions.
@@ -788,34 +751,10 @@ mod token_pool_push_tests {
     fn push_line_tracking() {
         let mut pool = TokenPool::new(10);
 
-        pool.push(
-            TokenKind::Identifier,
-            "1".to_string(),
-            Literal::Int(1),
-            1,
-            1,
-        );
-        pool.push(
-            TokenKind::Identifier,
-            "2".to_string(),
-            Literal::Int(2),
-            2,
-            1,
-        );
-        pool.push(
-            TokenKind::Identifier,
-            "3".to_string(),
-            Literal::Int(3),
-            3,
-            1,
-        );
-        pool.push(
-            TokenKind::Identifier,
-            "4".to_string(),
-            Literal::Int(4),
-            10,
-            1,
-        );
+        pool.push(TokenKind::Number, Literal::Number("1".to_string()), 1, 1);
+        pool.push(TokenKind::Number, Literal::Number("2".to_string()), 2, 1);
+        pool.push(TokenKind::Number, Literal::Number("3".to_string()), 3, 1);
+        pool.push(TokenKind::Number, Literal::Number("4".to_string()), 10, 1);
 
         assert_eq!(pool.line_at(0), Some(1));
         assert_eq!(pool.line_at(1), Some(2));
@@ -831,23 +770,16 @@ mod accessor_method_tests {
     #[test]
     fn kind_at_returns_correct_kind() {
         let mut pool = TokenPool::new(5);
+        pool.push(TokenKind::Number, Literal::Number("42".to_string()), 1, 1);
         pool.push(
             TokenKind::Identifier,
-            "42".to_string(),
-            Literal::Int(42),
-            1,
-            1,
-        );
-        pool.push(
-            TokenKind::Identifier,
-            "foo".to_string(),
             Literal::Identifier("foo".to_string()),
             1,
             5,
         );
-        pool.push(TokenKind::Plus, "+".to_string(), Literal::Nil, 1, 10);
+        pool.push(TokenKind::Plus, Literal::Nil, 1, 10);
 
-        assert_eq!(pool.kind_at(0), Some(TokenKind::Identifier));
+        assert_eq!(pool.kind_at(0), Some(TokenKind::Number));
         assert_eq!(pool.kind_at(1), Some(TokenKind::Identifier));
         assert_eq!(pool.kind_at(2), Some(TokenKind::Plus));
     }
@@ -855,22 +787,15 @@ mod accessor_method_tests {
     #[test]
     fn literal_at_returns_correct_literal() {
         let mut pool = TokenPool::new(5);
+        pool.push(TokenKind::Number, Literal::Number("42".to_string()), 1, 1);
         pool.push(
             TokenKind::Identifier,
-            "42".to_string(),
-            Literal::Int(42),
-            1,
-            1,
-        );
-        pool.push(
-            TokenKind::Identifier,
-            "foo".to_string(),
             Literal::Identifier("foo".to_string()),
             1,
             5,
         );
 
-        assert_eq!(pool.literal_at(0), Some(&Literal::Int(42)));
+        assert_eq!(pool.literal_at(0), Some(&Literal::Number("42".to_string())));
         assert_eq!(
             pool.literal_at(1),
             Some(&Literal::Identifier("foo".to_string()))
@@ -878,51 +803,11 @@ mod accessor_method_tests {
     }
 
     #[test]
-    fn lexeme_at_returns_correct_string() {
-        let mut pool = TokenPool::new(5);
-        pool.push(
-            TokenKind::Identifier,
-            "42".to_string(),
-            Literal::Int(42),
-            1,
-            1,
-        );
-        pool.push(
-            TokenKind::Identifier,
-            "hello".to_string(),
-            Literal::Identifier("hello".to_string()),
-            1,
-            5,
-        );
-
-        assert_eq!(pool.lexeme_at(0), Some("42"));
-        assert_eq!(pool.lexeme_at(1), Some("hello"));
-    }
-
-    #[test]
     fn line_at_returns_correct_line() {
         let mut pool = TokenPool::new(5);
-        pool.push(
-            TokenKind::Identifier,
-            "1".to_string(),
-            Literal::Int(1),
-            5,
-            1,
-        );
-        pool.push(
-            TokenKind::Identifier,
-            "2".to_string(),
-            Literal::Int(2),
-            10,
-            2,
-        );
-        pool.push(
-            TokenKind::Identifier,
-            "3".to_string(),
-            Literal::Int(3),
-            15,
-            3,
-        );
+        pool.push(TokenKind::Number, Literal::Number("1".to_string()), 5, 1);
+        pool.push(TokenKind::Number, Literal::Number("2".to_string()), 10, 2);
+        pool.push(TokenKind::Number, Literal::Number("3".to_string()), 15, 3);
 
         assert_eq!(pool.line_at(0), Some(5));
         assert_eq!(pool.line_at(1), Some(10));
@@ -933,9 +818,9 @@ mod accessor_method_tests {
     #[test]
     fn pos_at_returns_correct_position() {
         let mut pool = TokenPool::new(5);
-        pool.push(TokenKind::Identifier, "x".to_string(), Literal::Nil, 1, 5);
-        pool.push(TokenKind::Identifier, "y".to_string(), Literal::Nil, 1, 10);
-        pool.push(TokenKind::Identifier, "z".to_string(), Literal::Nil, 1, 42);
+        pool.push(TokenKind::Identifier, Literal::Nil, 1, 5);
+        pool.push(TokenKind::Identifier, Literal::Nil, 1, 10);
+        pool.push(TokenKind::Identifier, Literal::Nil, 1, 42);
 
         assert_eq!(pool.pos_at(0), Some(5));
         assert_eq!(pool.pos_at(1), Some(10));
@@ -951,7 +836,7 @@ mod boundary_edge_tests {
     #[test]
     fn accessors_return_none_out_of_bounds() {
         let mut pool = TokenPool::new(10);
-        pool.push(TokenKind::Identifier, "x".to_string(), Literal::Nil, 1, 1);
+        pool.push(TokenKind::Identifier, Literal::Nil, 1, 1);
 
         assert_eq!(pool.kind_at(1), None);
         assert_eq!(pool.kind_at(100), None);
@@ -961,7 +846,7 @@ mod boundary_edge_tests {
     #[test]
     fn accessors_return_none_at_len() {
         let mut pool = TokenPool::new(10);
-        pool.push(TokenKind::Identifier, "x".to_string(), Literal::Nil, 1, 1);
+        pool.push(TokenKind::Identifier, Literal::Nil, 1, 1);
 
         assert_eq!(pool.kind_at(pool.len()), None);
     }
@@ -973,7 +858,6 @@ mod boundary_edge_tests {
 
         assert_eq!(pool.kind_at(0), None);
         assert_eq!(pool.literal_at(0), None);
-        assert_eq!(pool.lexeme_at(0), None);
         assert_eq!(pool.line_at(0), None);
     }
 
@@ -982,16 +866,10 @@ mod boundary_edge_tests {
     fn maximum_valid_index() {
         let mut pool = TokenPool::new(10);
         for i in 0..5 {
-            pool.push(
-                TokenKind::Identifier,
-                i.to_string(),
-                Literal::Int(i as i32),
-                1,
-                i,
-            );
+            pool.push(TokenKind::Number, Literal::Number(i.to_string()), 1, i);
         }
 
-        assert_eq!(pool.kind_at(4), Some(TokenKind::Identifier));
+        assert_eq!(pool.kind_at(4), Some(TokenKind::Number));
         assert_eq!(pool.kind_at(5), None);
     }
 
@@ -1022,17 +900,10 @@ mod integration_tests {
     fn push_read_roundtrip() {
         let mut pool = TokenPool::new(10);
 
-        pool.push(
-            TokenKind::Identifier,
-            "42".to_string(),
-            Literal::Int(42),
-            1,
-            1,
-        );
+        pool.push(TokenKind::Number, Literal::Number("42".to_string()), 1, 1);
 
-        assert_eq!(pool.kind_at(0), Some(TokenKind::Identifier));
-        assert_eq!(pool.literal_at(0), Some(&Literal::Int(42)));
-        assert_eq!(pool.lexeme_at(0), Some("42"));
+        assert_eq!(pool.kind_at(0), Some(TokenKind::Number));
+        assert_eq!(pool.literal_at(0), Some(&Literal::Number("42".to_string())));
         assert_eq!(pool.line_at(0), Some(1));
     }
 
@@ -1041,30 +912,23 @@ mod integration_tests {
     fn multiple_tokens_mixed() {
         let mut pool = TokenPool::new(10);
 
-        pool.push(TokenKind::Var, "var".to_string(), Literal::Nil, 1, 1);
+        pool.push(TokenKind::Var, Literal::Nil, 1, 1);
         pool.push(
             TokenKind::Identifier,
-            "x".to_string(),
             Literal::Identifier("x".to_string()),
             1,
             5,
         );
-        pool.push(TokenKind::EqualEqual, "=".to_string(), Literal::Nil, 1, 7);
-        pool.push(
-            TokenKind::Identifier,
-            "42".to_string(),
-            Literal::Int(42),
-            1,
-            9,
-        );
-        pool.push(TokenKind::Semicolon, ";".to_string(), Literal::Nil, 1, 12);
+        pool.push(TokenKind::Equal, Literal::Nil, 1, 7);
+        pool.push(TokenKind::Number, Literal::Number("42".to_string()), 1, 9);
+        pool.push(TokenKind::Semicolon, Literal::Nil, 1, 12);
 
         assert_eq!(pool.len(), 5);
 
         assert_eq!(pool.kind_at(0), Some(TokenKind::Var));
         assert_eq!(pool.kind_at(1), Some(TokenKind::Identifier));
-        assert_eq!(pool.kind_at(2), Some(TokenKind::EqualEqual));
-        assert_eq!(pool.kind_at(3), Some(TokenKind::Identifier));
+        assert_eq!(pool.kind_at(2), Some(TokenKind::Equal));
+        assert_eq!(pool.kind_at(3), Some(TokenKind::Number));
         assert_eq!(pool.kind_at(4), Some(TokenKind::Semicolon));
     }
 
@@ -1073,22 +937,10 @@ mod integration_tests {
     fn line_tracking_multiline() {
         let mut pool = TokenPool::new(10);
 
-        pool.push(
-            TokenKind::Identifier,
-            "1".to_string(),
-            Literal::Int(1),
-            1,
-            1,
-        );
-        pool.push(TokenKind::Plus, "+".to_string(), Literal::Nil, 2, 1);
-        pool.push(
-            TokenKind::Identifier,
-            "2".to_string(),
-            Literal::Int(2),
-            2,
-            3,
-        );
-        pool.push(TokenKind::Semicolon, ";".to_string(), Literal::Nil, 2, 5);
+        pool.push(TokenKind::Number, Literal::Number("1".to_string()), 1, 1);
+        pool.push(TokenKind::Plus, Literal::Nil, 2, 1);
+        pool.push(TokenKind::Number, Literal::Number("2".to_string()), 2, 3);
+        pool.push(TokenKind::Semicolon, Literal::Nil, 2, 5);
 
         assert_eq!(pool.line_at(0), Some(1));
         assert_eq!(pool.line_at(1), Some(2));
