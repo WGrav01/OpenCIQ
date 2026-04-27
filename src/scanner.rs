@@ -520,7 +520,7 @@ mod scanner_tests {
         let tokens = scan_ok("?:");
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens.kind_at(0), Some(TokenKind::QuestionColon));
-        assert_eq!(tokens.line_at(0), Some(1));
+        assert_eq!(tokens.line_at(1), Some(1));
     }
 
     #[test]
