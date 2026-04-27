@@ -20,7 +20,7 @@ use phf::phf_map;
 
 use crate::{
     errors::ScanningError,
-    tokens::{Literal, TokenKind, TokenPool, KEYWORDS},
+    tokens::{KEYWORDS, Literal, TokenKind, TokenPool},
 };
 
 fn scan_string(
@@ -512,6 +512,28 @@ mod scanner_tests {
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens.kind_at(0), Some(TokenKind::DoubleVerticalBar));
         assert_eq!(tokens.line_at(0), Some(1));
+    }
+
+    /// Verifies a question and colon "?:" gets tokenized correctly.
+    #[test]
+    fn question_colon() {
+        let tokens = scan_ok("?:");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens.kind_at(0), Some(TokenKind::QuestionColon));
+        assert_eq!(tokens.line_at(0), Some(1));
+    }
+
+    #[test]
+    fn lone_question_mark() {
+        let tokens = scan_tokens("?");
+        assert_eq!(
+            tokens,
+            Err(ScanningError::UnexpectedCharacter {
+                line: 1,
+                pos: 1,
+                bad_char: '?',
+            }),
+        );
     }
 
     /// Verifies comments are skipped and line numbers advance.
