@@ -13,12 +13,138 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::iter::Peekable;
+use std::str::Chars;
+
 use phf::phf_map;
 
 use crate::{
     errors::ScanningError,
-    tokens::{Literal, TokenKind, TokenPool, KEYWORDS},
+    tokens::{KEYWORDS, Literal, TokenKind, TokenPool},
 };
+
+fn scan_string(
+    chars: &mut Peekable<Chars<'_>>,
+    line: &mut usize,
+    pos: &mut usize,
+    start: usize,
+) -> Result<(TokenKind, Literal), ScanningError> {
+    let mut string_content = String::new();
+    let mut terminated = false;
+    let mut escaped = false;
+
+    for string_char in chars.by_ref() {
+        *pos += 1;
+        if string_char == '\\' {
+            escaped = true;
+        }
+        if string_char == '"' {
+            if !escaped {
+                terminated = true;
+                break;
+            } else {
+                escaped = false;
+            }
+        }
+        if string_char == '\n' {
+            *line += 1;
+            *pos = 0;
+        }
+        string_content.push(string_char);
+    }
+
+    if !terminated {
+        return Err(ScanningError::UnterminatedString {
+            line: *line,
+            pos: start,
+        });
+    }
+
+    Ok((TokenKind::String, Literal::Str(string_content)))
+}
+
+fn scan_number(
+    first: char,
+    chars: &mut Peekable<Chars<'_>>,
+    line: usize,
+    pos: &mut usize,
+) -> Result<(TokenKind, Literal), ScanningError> {
+    let mut number_text = String::from(first);
+    let mut decimal_point_seen = false;
+
+    while let Some(&next_char) = chars.peek() {
+        if next_char.is_ascii_digit() {
+            number_text.push(next_char);
+            chars.next();
+            *pos += 1;
+        } else if next_char == '.' {
+            if decimal_point_seen {
+                return Err(ScanningError::UnexpectedCharacter {
+                    line,
+                    pos: *pos,
+                    bad_char: next_char,
+                });
+            }
+            decimal_point_seen = true;
+            number_text.push(next_char);
+            chars.next();
+            *pos += 1;
+
+            match chars.peek() {
+                Some(c) if !c.is_ascii_digit() => {
+                    return Err(ScanningError::UnexpectedCharacter {
+                        line,
+                        pos: *pos,
+                        bad_char: *c,
+                    });
+                }
+                None => {
+                    return Err(ScanningError::UnexpectedCharacter {
+                        line,
+                        pos: *pos,
+                        bad_char: '.',
+                    });
+                }
+                _ => {}
+            }
+        } else {
+            break;
+        }
+    }
+
+    Ok((TokenKind::Number, Literal::Number(number_text)))
+}
+
+fn scan_identifier_or_keyword(
+    first: char,
+    chars: &mut Peekable<Chars<'_>>,
+    pos: &mut usize,
+) -> (TokenKind, Literal) {
+    let mut identifier_text = String::from(first);
+
+    while let Some(&next_char) = chars.peek() {
+        if next_char.is_alphanumeric() {
+            identifier_text.push(next_char);
+            chars.next();
+            *pos += 1;
+        } else {
+            break;
+        }
+    }
+
+    let kind = KEYWORDS
+        .get(&identifier_text)
+        .copied()
+        .unwrap_or(TokenKind::Identifier);
+
+    let literal = if kind == TokenKind::Identifier {
+        Literal::Identifier(identifier_text)
+    } else {
+        Literal::Nil
+    };
+
+    (kind, literal)
+}
 
 static SIMPLE_MATCHES: phf::Map<char, TokenKind> = phf_map!(
     '(' => TokenKind::LeftParen,
@@ -61,7 +187,6 @@ pub fn scan_tokens(source: &str) -> Result<TokenPool, ScanningError> {
                     tokens.push(TokenKind::Bang, Literal::Nil, line, pos);
                 }
             }
-            // BUG: a single '=' (assignment) is silently dropped — TokenKind::Equal exists but is never emitted. The else branch should push TokenKind::Equal, mirroring the '!' arm.
             '=' => {
                 if chars.peek() == Some(&'=') {
                     chars.next();
@@ -131,107 +256,27 @@ pub fn scan_tokens(source: &str) -> Result<TokenPool, ScanningError> {
 
             '"' => {
                 let start = pos;
-                let mut string_content = String::new();
-                let mut terminated = false;
-                let mut escaped = false;
+                let (kind, literal) = scan_string(&mut chars, &mut line, &mut pos, start)?;
+                tokens.push(kind, literal, line, pos);
+            }
 
-                for string_char in chars.by_ref() {
-                    pos += 1;
-                    if string_char == '\\' {
-                        escaped = true;
-                    }
-                    if string_char == '"' {
-                        if !escaped {
-                            terminated = true;
-                            break;
-                        } else {
-                            escaped = false;
-                        }
-                    }
-                    if string_char == '\n' {
-                        line += 1;
-                        pos = 0;
-                    }
-                    string_content.push(string_char);
-                }
+            _ if current_char.is_numeric() => {
+                let (kind, literal) = scan_number(current_char, &mut chars, line, &mut pos)?;
+                tokens.push(kind, literal, line, pos);
+            }
 
-                if !terminated {
-                    return Err(ScanningError::UnterminatedString { line, pos: start });
-                }
-
-                tokens.push(TokenKind::String, Literal::Str(string_content), line, pos);
+            _ if current_char.is_ascii_alphabetic() || current_char == '_' => {
+                let (kind, literal) =
+                    scan_identifier_or_keyword(current_char, &mut chars, &mut pos);
+                tokens.push(kind, literal, line, pos);
             }
 
             _ => {
-                if current_char.is_numeric() {
-                    let mut number_text = String::from(current_char);
-                    let mut decimal_point_seen = false;
-                    while let Some(&next_char) = chars.peek() {
-                        if next_char.is_ascii_digit() {
-                            number_text.push(next_char);
-                            chars.next();
-                            pos += 1;
-                        } else if next_char == '.' {
-                            if decimal_point_seen {
-                                return Err(ScanningError::UnexpectedCharacter {
-                                    line,
-                                    pos: pos,
-                                    bad_char: next_char,
-                                });
-                            }
-
-                            decimal_point_seen = true;
-                            number_text.push(next_char);
-                            chars.next();
-                            pos += 1;
-
-                            if let Some(c) = chars.peek() {
-                                if !c.is_ascii_digit() {
-                                    return Err(ScanningError::UnexpectedCharacter {
-                                        line,
-                                        pos: pos,
-                                        bad_char: *c,
-                                    });
-                                }
-                            }
-                        } else {
-                            break;
-                        }
-                    }
-
-                    tokens.push(TokenKind::Number, Literal::Number(number_text), line, pos);
-                } else if current_char.is_ascii_alphabetic() || current_char == '_' {
-                    let mut identifier_text = String::from(current_char);
-                    while let Some(&next_char) = chars.peek() {
-                        if next_char.is_alphanumeric() {
-                            identifier_text.push(next_char);
-                            chars.next();
-                            pos += 1;
-                        } else {
-                            break;
-                        }
-                    }
-
-                    let kind = if let Some(keyword) = KEYWORDS.get(&identifier_text) {
-                        *keyword
-                    } else {
-                        TokenKind::Identifier
-                    };
-
-                    let literal = if kind == TokenKind::Identifier {
-                        Literal::Identifier(identifier_text.clone())
-                    } else {
-                        Literal::Nil
-                    };
-
-                    tokens.push(kind, literal, line, pos);
-                } else {
-                    return Err(ScanningError::UnexpectedCharacter {
-                        line,
-                        pos,
-                        bad_char: current_char,
-                    });
-                }
+                return Err(ScanningError::UnexpectedCharacter {
+                    line,
+                    pos,
+                    bad_char: current_char,
+                });
             }
         }
     }
