@@ -20,7 +20,7 @@ jobs:
         with:
           path: |
             ~/.cargo/bin/
-            ~/.cargo/env/
+            ~/.cargo/env
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
@@ -39,7 +39,7 @@ jobs:
         run: |
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           source "$HOME/.cargo/env"
-      
+
       - name: Install cargo-llvm-cov
         if: steps.cache-rust.outputs.cache-hit != 'true'
         uses: https://github.com/taiki-e/install-action@cargo-llvm-cov
