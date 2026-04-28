@@ -35,17 +35,19 @@ fn scan_string(
 
     for string_char in chars.by_ref() {
         *pos += 1;
-        if string_char == '\\' {
+
+        if string_char == '"' && !escaped {
+            terminated = true;
+            break;
+        }
+
+        if escaped {
+            escaped = false;
+        } else if string_char == '\\' {
             escaped = true;
+            continue; // Don't add the backslash to content
         }
-        if string_char == '"' {
-            if !escaped {
-                terminated = true;
-                break;
-            } else {
-                escaped = false;
-            }
-        }
+
         if string_char == '\n' {
             *line += 1;
             *pos = 0;
@@ -85,7 +87,6 @@ fn scan_number(
                     bad_char: next_char,
                 });
             }
-            // Only consume the dot if it's followed by a digit
             match chars.clone().nth(1) {
                 Some(c) if c.is_ascii_digit() => {
                     decimal_point_seen = true;
@@ -94,7 +95,6 @@ fn scan_number(
                     *pos += 1;
                 }
                 _ => {
-                    // Dot is not part of this number; break and let main scanner handle it
                     break;
                 }
             }
@@ -114,7 +114,7 @@ fn scan_identifier_or_keyword(
     let mut identifier_text = String::from(first);
 
     while let Some(&next_char) = chars.peek() {
-        if next_char.is_alphanumeric() {
+        if next_char.is_alphanumeric() || next_char == '_' {
             identifier_text.push(next_char);
             chars.next();
             *pos += 1;
@@ -128,10 +128,10 @@ fn scan_identifier_or_keyword(
         .copied()
         .unwrap_or(TokenKind::Identifier);
 
-    let literal = if kind == TokenKind::Identifier {
-        Literal::Identifier(identifier_text)
-    } else {
-        Literal::Nil
+    let literal = match kind {
+        TokenKind::Identifier => Literal::Identifier(identifier_text),
+        TokenKind::Boolean => Literal::Boolean(identifier_text == "true"),
+        _ => Literal::Nil,
     };
 
     (kind, literal)
@@ -271,7 +271,7 @@ pub fn scan_tokens(source: &str) -> Result<TokenPool, ScanningError> {
                 tokens.push(kind, literal, line, pos);
             }
 
-            _ if current_char.is_numeric() => {
+            _ if current_char.is_ascii_digit() => {
                 let (kind, literal) = scan_number(current_char, &mut chars, line, &mut pos)?;
                 tokens.push(kind, literal, line, pos);
             }
@@ -615,22 +615,24 @@ mod scanner_tests {
         assert_eq!(tokens.line_at(0), Some(1));
     }
 
-    /// Verifies true tokenizes as a boolean kind.
+    /// Verifies true tokenizes as a boolean kind with a true literal.
     #[test]
     fn keyword_true_is_boolean_kind() {
         let tokens = scan_ok("true");
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens.kind_at(0), Some(TokenKind::Boolean));
         assert_eq!(tokens.line_at(0), Some(1));
+        assert_eq!(tokens.literal_at(0), Some(&Literal::Boolean(true)));
     }
 
-    /// Verifies false tokenizes as a boolean kind.
+    /// Verifies false tokenizes as a boolean kind with a false literal.
     #[test]
     fn keyword_false_is_boolean_kind() {
         let tokens = scan_ok("false");
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens.kind_at(0), Some(TokenKind::Boolean));
         assert_eq!(tokens.line_at(0), Some(1));
+        assert_eq!(tokens.literal_at(0), Some(&Literal::Boolean(false)));
     }
 
     /// Verifies integer numbers preserve their literal text.
@@ -765,6 +767,46 @@ mod scanner_tests {
         let tokens = scan_ok("_foo");
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens.kind_at(0), Some(TokenKind::Identifier));
+        assert_eq!(
+            tokens.literal_at(0),
+            Some(&Literal::Identifier("_foo".to_string()))
+        );
+    }
+
+    /// Verifies underscores in the middle of an identifier produce a single token.
+    #[test]
+    fn identifier_underscore_in_middle() {
+        let tokens = scan_ok("foo_bar");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens.kind_at(0), Some(TokenKind::Identifier));
+        assert_eq!(
+            tokens.literal_at(0),
+            Some(&Literal::Identifier("foo_bar".to_string()))
+        );
+    }
+
+    /// Verifies identifiers with a trailing underscore are a single token.
+    #[test]
+    fn identifier_underscore_trailing() {
+        let tokens = scan_ok("foo_");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens.kind_at(0), Some(TokenKind::Identifier));
+        assert_eq!(
+            tokens.literal_at(0),
+            Some(&Literal::Identifier("foo_".to_string()))
+        );
+    }
+
+    /// Verifies an identifier consisting entirely of underscores is valid.
+    #[test]
+    fn identifier_only_underscores() {
+        let tokens = scan_ok("__");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens.kind_at(0), Some(TokenKind::Identifier));
+        assert_eq!(
+            tokens.literal_at(0),
+            Some(&Literal::Identifier("__".to_string()))
+        );
     }
 
     /// Verifies a method-call dot should not be absorbed into a number.
@@ -821,6 +863,43 @@ mod scanner_tests {
         }
     }
 
+    /// Verifies that a double backslash (escaped backslash) properly terminates
+    /// the string. The first backslash escapes the second, so the closing quote
+    /// is unescaped and terminates the string.
+    /// Regression test for Bug 1: the escaped flag was never reset after non-quote
+    /// characters, so \\ left escaped=true and the closing " was treated as escaped.
+    #[test]
+    fn string_double_backslash_terminates() {
+        // Source: "hello\\" — \\ is an escaped backslash; the following " closes.
+        let tokens = scan_ok("\"hello\\\\\"");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens.kind_at(0), Some(TokenKind::String));
+        // The content should contain a single backslash (first escaped the second)
+        assert_eq!(
+            tokens.literal_at(0),
+            Some(&Literal::Str("hello\\".to_string()))
+        );
+    }
+
+    /// Verifies an empty string literal produces a String token.
+    #[test]
+    fn string_empty() {
+        let tokens = scan_ok("\"\"");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens.kind_at(0), Some(TokenKind::String));
+    }
+
+    /// Verifies the string content is captured in the literal.
+    #[test]
+    fn string_literal_content_preserved() {
+        let tokens = scan_ok("\"hello\"");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(
+            tokens.literal_at(0),
+            Some(&Literal::Str("hello".to_string()))
+        );
+    }
+
     /// Verifies that a decimal point immediately followed by a non-digit letter
     /// produces separate tokens: Number, Dot, Identifier.
     #[test]
@@ -863,6 +942,48 @@ mod scanner_tests {
         assert_eq!(
             tokens.literal_at(0),
             Some(&Literal::Number("42".to_string()))
+        );
+    }
+
+    /// Verifies a leading-zero integer is scanned as a single Number token.
+    #[test]
+    fn number_leading_zero() {
+        let tokens = scan_ok("007");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens.kind_at(0), Some(TokenKind::Number));
+        assert_eq!(
+            tokens.literal_at(0),
+            Some(&Literal::Number("007".to_string()))
+        );
+    }
+
+    /// Verifies a Unicode numeric character (not ASCII digit) is rejected.
+    /// Regression test for Bug 4: is_numeric() accepted Unicode digits like '²'
+    /// which would enter scan_number but produce a malformed token.
+    #[test]
+    fn number_unicode_digit_is_error() {
+        match scan_tokens("²") {
+            Err(ScanningError::UnexpectedCharacter { bad_char, .. }) => {
+                assert_eq!(bad_char, '²')
+            }
+            Ok(tokens) => panic!(
+                "expected UnexpectedCharacter, got Ok with {} tokens",
+                tokens.len()
+            ),
+            Err(other) => panic!("expected UnexpectedCharacter, got {other:?}"),
+        }
+    }
+
+    /// Verifies that a keyword prefix followed by extra letters is an identifier,
+    /// not a keyword. e.g. "truefoo" must not tokenize as Boolean.
+    #[test]
+    fn keyword_prefix_is_identifier() {
+        let tokens = scan_ok("truefoo");
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens.kind_at(0), Some(TokenKind::Identifier));
+        assert_eq!(
+            tokens.literal_at(0),
+            Some(&Literal::Identifier("truefoo".to_string()))
         );
     }
 }
